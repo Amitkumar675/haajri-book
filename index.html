@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e40af">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Labour Attendance & Hisaab App - मजदूर हाजिरी व हिसाब</title>
+  
+  <!-- Manifest -->
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- SheetJS for Excel Export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Hind', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', 'Hind', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    input, textarea, select {
+      user-select: text;
+    }
+    /* Hide scrollbar for tabs */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-area, #print-area * {
+        visibility: visible;
+      }
+      #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen pb-24 md:pb-10">
+
+  <!-- TOP HEADER -->
+  <header class="bg-gradient-to-r from-blue-800 to-indigo-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-inner">
+          <i data-lucide="hard-hat" class="w-6 h-6 text-amber-400"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight flex items-center gap-1.5">
+            <span>हाजिरी डायरी</span>
+            <span class="text-xs font-normal bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.5 rounded">Pro</span>
+          </h1>
+          <p class="text-xs text-blue-200">Labour Attendance & Hisaab</p>
+        </div>
+      </div>
+
+      <!-- Header Action Buttons -->
+      <div class="flex items-center space-x-2">
+        <button onclick="openBackupModal()" title="डेटा बैकअप / रीस्टोर" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition active:scale-95 flex items-center gap-1 text-xs">
+          <i data-lucide="database" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">बैकअप</span>
+        </button>
+        <button onclick="openNewWorkerModal()" class="bg-amber-400 hover:bg-amber-300 text-blue-950 font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm shadow flex items-center gap-1.5 active:scale-95 transition">
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          <span>+ मजदूर जोड़ें</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SITE & DATE SELECTOR BAR (For Attendance Tab) -->
+    <div id="sub-header-bar" class="bg-blue-900/90 border-t border-blue-800/80 px-4 py-2.5 text-xs text-blue-100">
+      <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2">
+        <!-- Site Dropdown -->
+        <div class="flex items-center space-x-1.5 bg-blue-950/60 px-2.5 py-1.5 rounded-lg border border-blue-700/50">
+          <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span class="text-slate-300">साइट:</span>
+          <select id="selected-site" onchange="onSiteFilterChange()" class="bg-transparent text-white font-medium focus:outline-none cursor-pointer">
+            <option value="ALL" class="bg-slate-800 text-white">सभी साइट्स (All)</option>
+          </select>
+          <button onclick="openSiteManagementModal()" title="नई साइट जोड़ें" class="text-blue-300 hover:text-white ml-1">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Date Navigation for Attendance -->
+        <div class="flex items-center space-x-1 bg-blue-950/60 px-2 py-1 rounded-lg border border-blue-700/50">
+          <button onclick="changeAttendanceDate(-1)" class="p-1 hover:bg-blue-800 rounded active:scale-90 transition">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <input type="date" id="attendance-date" onchange="renderAttendanceTab()" class="bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer text-center">
+          <button onclick="changeAttendanceDate(1)" class="p-1 hover:bg-blue-800 rounded active:scale-90 transition">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+          <button onclick="setTodayDate()" class="text-[11px] bg-blue-700 hover:bg-blue-600 px-1.5 py-0.5 rounded text-white font-medium ml-1">आज</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-4xl mx-auto px-3.5 py-4">
+
+    <!-- ========================================== -->
+    <!-- 1. ATTENDANCE TAB (दैनिक हाजिरी) -->
+    <!-- ========================================== -->
+    <section id="tab-attendance" class="tab-content space-y-4">
+      
+      <!-- Quick Stats Card -->
+      <div class="grid grid-cols-4 gap-2 bg-white p-3 rounded-2xl shadow-sm border border-slate-200/80">
+        <div class="text-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+          <span class="text-xs text-slate-500 font-medium block">कुल मजदूर</span>
+          <span id="stat-total" class="text-lg font-bold text-slate-800">0</span>
+        </div>
+        <div class="text-center p-2 rounded-xl bg-emerald-50 border border-emerald-100">
+          <span class="text-xs text-emerald-700 font-medium block">Present</span>
+          <span id="stat-present" class="text-lg font-bold text-emerald-700">0</span>
+        </div>
+        <div class="text-center p-2 rounded-xl bg-amber-50 border border-amber-100">
+          <span class="text-xs text-amber-700 font-medium block">Half-Day</span>
+          <span id="stat-half" class="text-lg font-bold text-amber-700">0</span>
+        </div>
+        <div class="text-center p-2 rounded-xl bg-rose-50 border border-rose-100">
+          <span class="text-xs text-rose-700 font-medium block">Absent</span>
+          <span id="stat-absent" class="text-lg font-bold text-rose-700">0</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions Header -->
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center space-x-2">
+          <h2 class="font-bold text-slate-800 text-sm md:text-base flex items-center gap-1.5">
+            <span>दैनिक हाजिरी सूची</span>
+            <span id="attendance-count-badge" class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">0</span>
+          </h2>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="markAllPresent()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-1 transition">
+            <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            <span>सबको Present करें</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Labour Attendance List -->
+      <div id="attendance-list" class="space-y-2.5">
+        <!-- Rendered dynamically via JS -->
+      </div>
+
+      <!-- Today's Estimated Wages Widget -->
+      <div class="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 flex items-center justify-between text-blue-900 shadow-sm">
+        <div>
+          <span class="text-xs font-medium text-blue-700 block">आज की कुल अनुमानित दिहाड़ी (Total Wages Today)</span>
+          <span id="today-total-wages" class="text-xl font-bold text-blue-900">₹0</span>
+        </div>
+        <button onclick="switchTab('tab-hisaab')" class="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl shadow active:scale-95 transition flex items-center gap-1">
+          <span>पूरा हिसाब देखें</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 2. WORKERS LIST TAB (मजदूर सूची) -->
+    <!-- ========================================== -->
+    <section id="tab-workers" class="tab-content hidden space-y-4">
+      
+      <!-- Search & Add Worker -->
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200/80 space-y-2.5">
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+          <input type="text" id="worker-search-input" oninput="renderWorkersTab()" placeholder="मजदूर का नाम या मोबाइल नंबर खोजें..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-500">
+          <span id="total-worker-count">कुल मजदूर: 0</span>
+          <button onclick="openNewWorkerModal()" class="text-blue-600 font-semibold flex items-center gap-1 hover:underline">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> नया मजदूर जोड़ें
+          </button>
+        </div>
+      </div>
+
+      <!-- Workers List Cards -->
+      <div id="workers-cards-list" class="space-y-2.5">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 3. ADVANCES & KHARCHA TAB (खर्चा / एडवांस) -->
+    <!-- ========================================== -->
+    <section id="tab-advances" class="tab-content hidden space-y-4">
+      
+      <!-- Add Advance Card -->
+      <div class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <div class="p-2 bg-amber-500 text-white rounded-xl shadow-sm">
+              <i data-lucide="banknote" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-800 text-sm">नया एडवांस / खर्चा दर्ज करें</h3>
+              <p class="text-xs text-slate-500">मजदूर को दिया गया पैसा</p>
+            </div>
+          </div>
+        </div>
+
+        <form id="advance-form" onsubmit="handleAdvanceSubmit(event)" class="space-y-2.5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">मजदूर चुनें *</label>
+              <select id="adv-worker-select" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <option value="">-- मजदूर सेलेक्ट करें --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">रकम (₹ Amount) *</label>
+              <input type="number" id="adv-amount" required min="1" placeholder="₹ रकम दर्ज करें" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">तारीख *</label>
+              <input type="date" id="adv-date" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">भुगतान का माध्यम (Mode)</label>
+              <select id="adv-mode" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <option value="Cash">नकद (Cash)</option>
+                <option value="UPI">ऑनलाइन (UPI/GPay/PhonePe)</option>
+                <option value="Bank">बैंक ट्रांसफर</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">वजह / विवरण (Note)</label>
+            <input type="text" id="adv-note" placeholder="जैसे: राशन का खर्चा, दवाई, घर का खर्च..." class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          </div>
+
+          <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold py-2.5 rounded-xl shadow text-sm transition flex items-center justify-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>एडवांस सेव करें (Save Advance)</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Advance History -->
+      <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+            <i data-lucide="history" class="w-4 h-4 text-blue-600"></i>
+            <span>हालिया खर्चे / एडवांस की सूची</span>
+          </h3>
+          <span id="advances-total-badge" class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">कुल: ₹0</span>
+        </div>
+
+        <div id="advances-history-list" class="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 4. MONTHLY HISAAB & REPORTS TAB (हिसाब / रिपोर्ट) -->
+    <!-- ========================================== -->
+    <section id="tab-hisaab" class="tab-content hidden space-y-4">
+      
+      <!-- Filter Bar -->
+      <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">महीना चुनें</label>
+            <input type="month" id="report-month" onchange="renderHisaabTab()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">साइट फ़िल्टर</label>
+            <select id="report-site-filter" onchange="renderHisaabTab()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="ALL">सभी साइट्स (All)</option>
+            </select>
+          </div>
+          <div class="col-span-2 sm:col-span-1 flex items-end">
+            <button onclick="exportToExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow active:scale-95 transition">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              <span>Excel डाउनलोड</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Stat Cards -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-3 text-center">
+          <span class="text-xs text-blue-700 font-medium block">कुल कमाई (Gross)</span>
+          <span id="report-total-gross" class="text-base sm:text-lg font-bold text-blue-900">₹0</span>
+        </div>
+        <div class="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center">
+          <span class="text-xs text-amber-700 font-medium block">कुल एडवांस</span>
+          <span id="report-total-advance" class="text-base sm:text-lg font-bold text-amber-700">₹0</span>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
+          <span class="text-xs text-emerald-700 font-medium block">देने बाकी (Net Payable)</span>
+          <span id="report-total-net" class="text-base sm:text-lg font-bold text-emerald-800">₹0</span>
+        </div>
+      </div>
+
+      <!-- Workers Payout Cards -->
+      <div id="hisaab-workers-list" class="space-y-3">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- BOTTOM NAVIGATION BAR (Mobile Native Feel) -->
+  <!-- ========================================== -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200/90 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-40">
+    <div class="max-w-md mx-auto grid grid-cols-4 px-2 py-1.5">
+      <!-- 1. Attendance Tab -->
+      <button onclick="switchTab('tab-attendance')" id="nav-tab-attendance" class="nav-btn flex flex-col items-center justify-center py-1 text-blue-600 transition">
+        <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+        <span class="text-[11px] font-semibold mt-1">हाजिरी</span>
+      </button>
+
+      <!-- 2. Workers Tab -->
+      <button onclick="switchTab('tab-workers')" id="nav-tab-workers" class="nav-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-600 transition">
+        <i data-lucide="users" class="w-5 h-5"></i>
+        <span class="text-[11px] font-medium mt-1">मजदूर</span>
+      </button>
+
+      <!-- 3. Advances Tab -->
+      <button onclick="switchTab('tab-advances')" id="nav-tab-advances" class="nav-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-600 transition">
+        <i data-lucide="wallet" class="w-5 h-5"></i>
+        <span class="text-[11px] font-medium mt-1">खर्चा/एडवांस</span>
+      </button>
+
+      <!-- 4. Hisaab / Report Tab -->
+      <button onclick="switchTab('tab-hisaab')" id="nav-tab-hisaab" class="nav-btn flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-600 transition">
+        <i data-lucide="calculator" class="w-5 h-5"></i>
+        <span class="text-[11px] font-medium mt-1">हिसाब-किताब</span>
+      </button>
+    </div>
+  </nav>
+
+
+  <!-- ========================================== -->
+  <!-- MODALS -->
+  <!-- ========================================== -->
+
+  <!-- 1. ADD / EDIT WORKER MODAL -->
+  <div id="worker-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 id="worker-modal-title" class="font-bold text-slate-800 text-base flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-5 h-5 text-blue-600"></i>
+          <span>नया मजदूर जोड़ें</span>
+        </h3>
+        <button onclick="closeWorkerModal()" class="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="worker-form" onsubmit="handleWorkerFormSubmit(event)" class="space-y-3">
+        <input type="hidden" id="edit-worker-id" value="">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">मजदूर का नाम (Full Name) *</label>
+          <input type="text" id="worker-name" required placeholder="जैसे: रामू कुमार" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">मोबाइल नंबर</label>
+            <input type="tel" id="worker-phone" placeholder="98XXXXXXXX" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">रोज़ की दिहाड़ी (₹ Wage/Day) *</label>
+            <input type="number" id="worker-rate" required min="1" placeholder="₹ जैसे: 600" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">काम / रोल (Category)</label>
+            <select id="worker-role" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="मिस्त्री (Mason)">मिस्त्री (Mason)</option>
+              <option value="हेल्पर (Helper)">हेल्पर (Helper)</option>
+              <option value="कारपेंटर (Carpenter)">कारपेंटर (Carpenter)</option>
+              <option value="पेंटर (Painter)">पेंटर (Painter)</option>
+              <option value="प्लंबर (Plumber)">प्लंबर (Plumber)</option>
+              <option value="इलेक्ट्रीशियन (Electrician)">इलेक्ट्रीशियन (Electrician)</option>
+              <option value="वेल्डर / फिटर">वेल्डर / फिटर</option>
+              <option value="सुपरवाइजर (Supervisor)">सुपरवाइजर (Supervisor)</option>
+              <option value="अन्य (Other)">अन्य (Other)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">साइट (Assigned Site)</label>
+            <select id="worker-site" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <!-- Rendered options -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">ओवरटाइम दर प्रति घंटा (₹ OT Rate/Hour)</label>
+          <input type="number" id="worker-ot-rate" placeholder="खाली छोड़ें तो (दिहाड़ी / 8) खुद लगेगा" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeWorkerModal()" class="w-1/2 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50">रद्द करें</button>
+          <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow">सेव करें</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 2. SITE MANAGEMENT MODAL -->
+  <div id="site-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="map-pin" class="w-4 h-4 text-blue-600"></i>
+          <span>साइट्स प्रबंधित करें (Sites Management)</span>
+        </h3>
+        <button onclick="closeSiteManagementModal()" class="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-center space-x-2">
+          <input type="text" id="new-site-input" placeholder="नई साइट का नाम..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <button onclick="addNewSite()" class="bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-blue-700 shrink-0">जोड़ें</button>
+        </div>
+
+        <div class="text-xs font-semibold text-slate-500">वर्तमान साइट्स:</div>
+        <div id="sites-chips-list" class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 3. WORKER DETAILS & MONTHLY CALENDAR VIEW MODAL -->
+  <div id="worker-history-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <h3 id="wh-name" class="font-bold text-slate-900 text-base">मजदूर का नाम</h3>
+          <p id="wh-role-site" class="text-xs text-slate-500">रोल | साइट</p>
+        </div>
+        <button onclick="closeWorkerHistoryModal()" class="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Quick summary for current month -->
+      <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+        <div class="text-center">
+          <span class="text-[10px] text-slate-500 block font-medium">कुल हाजिरी (दिन)</span>
+          <span id="wh-present-days" class="text-sm font-bold text-emerald-700">0</span>
+        </div>
+        <div class="text-center">
+          <span class="text-[10px] text-slate-500 block font-medium">कुल कमाई</span>
+          <span id="wh-gross-wages" class="text-sm font-bold text-blue-700">₹0</span>
+        </div>
+        <div class="text-center">
+          <span class="text-[10px] text-slate-500 block font-medium">बचा हिसाब (Net)</span>
+          <span id="wh-net-balance" class="text-sm font-bold text-slate-900">₹0</span>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <h4 class="text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>इस महीने की हाजिरी सूची</span>
+          <span class="text-[10px] font-normal text-slate-500">हालिया रिकॉर्ड्स</span>
+        </h4>
+        <div id="wh-attendance-records" class="divide-y divide-slate-100 max-h-56 overflow-y-auto text-xs">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <div class="pt-2 flex items-center justify-end space-x-2 border-t">
+        <button id="wh-whatsapp-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow">
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          <span>WhatsApp पर हिसाब भेजें</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 4. DATA BACKUP & RESTORE MODAL -->
+  <div id="backup-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4 text-blue-600"></i>
+          <span>डेटा बैकअप एवं रीस्टोर (Backup / Restore)</span>
+        </h3>
+        <button onclick="closeBackupModal()" class="p-1 rounded-full text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
+        <p>आपका सारा डेटा आपके फोन/कंप्यूटर के ब्राउज़र में स्टोर रहता है। अपना बैकअप सुरक्षित रखने के लिए बैकअप फाइल डाउनलोड कर सकते हैं।</p>
+
+        <div class="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
+          <div>
+            <div class="font-bold text-blue-900">1. बैकअप फाइल डाउनलोड करें</div>
+            <div class="text-[11px] text-blue-700">सभी मजदूर, हाजिरी और खर्चों की JSON फाइल</div>
+          </div>
+          <button onclick="exportDataBackup()" class="bg-blue-600 text-white font-semibold px-3 py-1.5 rounded-xl hover:bg-blue-700 active:scale-95 transition">
+            डाउनलोड
+          </button>
+        </div>
+
+        <div class="p-3 bg-amber-50 border border-amber-100 rounded-2xl space-y-2">
+          <div>
+            <div class="font-bold text-amber-900">2. पुराना बैकअप वापस लोड करें</div>
+            <div class="text-[11px] text-amber-700">किसी अन्य फोन या डिवाइस की बैकअप फाइल चुनें</div>
+          </div>
+          <input type="file" id="backup-file-input" accept=".json" onchange="importDataBackup(event)" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-700">
+        </div>
+
+        <div class="pt-2 border-t flex justify-between items-center text-[11px]">
+          <button onclick="resetToSampleData()" class="text-rose-600 font-semibold hover:underline">
+            डेमो/सैंपल डेटा रीलोड करें
+          </button>
+          <span class="text-slate-400">v1.0 (Offline Ready)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold z-50 hidden transition-all duration-300 flex items-center gap-2">
+    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-msg">काम पूरा हुआ!</span>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- APPLICATION LOGIC SCRIPT -->
+  <!-- ========================================== -->
+  <script>
+    // ---------------------------------------------
+    // INITIAL STATE & STORAGE HELPERS
+    // ---------------------------------------------
+    const STORAGE_KEY_WORKERS = 'labour_app_workers_v1';
+    const STORAGE_KEY_ATTENDANCE = 'labour_app_attendance_v1';
+    const STORAGE_KEY_ADVANCES = 'labour_app_advances_v1';
+    const STORAGE_KEY_SITES = 'labour_app_sites_v1';
+
+    // Default sample data for first-time use
+    const SAMPLE_SITES = ['Site A - सिविल लाइन्स', 'Site B - सेक्टर 62', 'मुख्य वर्कशॉप'];
+    
+    const SAMPLE_WORKERS = [
+      { id: 'w1', name: 'रामेश्वर शर्मा (मिस्त्री)', phone: '9876543210', role: 'मिस्त्री (Mason)', rate: 750, otRate: 95, site: 'Site A - सिविल लाइन्स', createdAt: '2026-11-01' },
+      { id: 'w2', name: 'सोनू यादव (हेल्पर)', phone: '9876543211', role: 'हेल्पर (Helper)', rate: 500, otRate: 65, site: 'Site A - सिविल लाइन्स', createdAt: '2026-11-01' },
+      { id: 'w3', name: 'दिनेश कुमार (पेंटर)', phone: '9876543212', role: 'पेंटर (Painter)', rate: 650, otRate: 80, site: 'Site B - सेक्टर 62', createdAt: '2026-11-01' },
+      { id: 'w4', name: 'अकबर खान (कारपेंटर)', phone: '9876543213', role: 'कारपेंटर (Carpenter)', rate: 700, otRate: 90, site: 'Site B - सेक्टर 62', createdAt: '2026-11-01' },
+      { id: 'w5', name: 'मुकेश प्रजापति (हेल्पर)', phone: '9876543214', role: 'हेल्पर (Helper)', rate: 500, otRate: 65, site: 'मुख्य वर्कशॉप', createdAt: '2026-11-01' }
+    ];
+
+    // App state
+    let state = {
+      currentTab: 'tab-attendance',
+      selectedDate: getTodayString(),
+      selectedSite: 'ALL',
+      workers: [],
+      attendance: {}, // { 'YYYY-MM-DD_workerId': { status: 'P'|'A'|'HD', otHours: 0, note: '' } }
+      advances: [],   // [ { id, workerId, amount, date, mode, note } ]
+      sites: []
+    };
+
+    function getTodayString() {
+      const d = new Date();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${d.getFullYear()}-${month}-${day}`;
+    }
+
+    function getCurrentMonthString() {
+      const d = new Date();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${d.getFullYear()}-${month}`;
+    }
+
+    // Load from LocalStorage
+    function loadData() {
+      try {
+        const storedWorkers = localStorage.getItem(STORAGE_KEY_WORKERS);
+        const storedAttendance = localStorage.getItem(STORAGE_KEY_ATTENDANCE);
+        const storedAdvances = localStorage.getItem(STORAGE_KEY_ADVANCES);
+        const storedSites = localStorage.getItem(STORAGE_KEY_SITES);
+
+        state.workers = storedWorkers ? JSON.parse(storedWorkers) : SAMPLE_WORKERS;
+        state.attendance = storedAttendance ? JSON.parse(storedAttendance) : {};
+        state.advances = storedAdvances ? JSON.parse(storedAdvances) : [];
+        state.sites = storedSites ? JSON.parse(storedSites) : SAMPLE_SITES;
+
+        // If first time and no attendance, generate some reasonable initial entries for today
+        if (Object.keys(state.attendance).length === 0) {
+          state.workers.forEach((w, idx) => {
+            const key = `${state.selectedDate}_${w.id}`;
+            const status = idx === 3 ? 'HD' : (idx === 4 ? 'A' : 'P');
+            const ot = idx === 0 ? 2 : 0;
+            state.attendance[key] = { status, otHours: ot, note: '' };
+          });
+          saveAttendance();
+        }
+
+        // Add a sample advance if none exist
+        if (state.advances.length === 0 && state.workers.length > 0) {
+          state.advances.push({
+            id: 'adv_' + Date.now(),
+            workerId: state.workers[0].id,
+            amount: 500,
+            date: state.selectedDate,
+            mode: 'Cash',
+            note: 'राशन के लिए पेशगी (खर्चा)'
+          });
+          saveAdvances();
+        }
+
+      } catch (e) {
+        console.error('Error loading data:', e);
+        state.workers = SAMPLE_WORKERS;
+        state.sites = SAMPLE_SITES;
+      }
+    }
+
+    function saveWorkers() {
+      localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(state.workers));
+    }
+    function saveAttendance() {
+      localStorage.setItem(STORAGE_KEY_ATTENDANCE, JSON.stringify(state.attendance));
+    }
+    function saveAdvances() {
+      localStorage.setItem(STORAGE_KEY_ADVANCES, JSON.stringify(state.advances));
+    }
+    function saveSites() {
+      localStorage.setItem(STORAGE_KEY_SITES, JSON.stringify(state.sites));
+    }
+
+    // ---------------------------------------------
+    // TAB NAVIGATION
+    // ---------------------------------------------
+    function switchTab(tabId) {
+      state.currentTab = tabId;
+
+      // Update content visibility
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const activeEl = document.getElementById(tabId);
+      if (activeEl) activeEl.classList.remove('hidden');
+
+      // Update Sub-header visibility (Only show date navigation in attendance tab)
+      const subHeader = document.getElementById('sub-header-bar');
+      if (tabId === 'tab-attendance') {
+        subHeader.classList.remove('hidden');
+      } else {
+        subHeader.classList.add('hidden');
+      }
+
+      // Update Bottom Nav styles
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-blue-600');
+        btn.classList.add('text-slate-400');
+        const span = btn.querySelector('span');
+        if (span) span.classList.remove('font-bold');
+      });
+
+      const currentNavBtn = document.getElementById(`nav-${tabId}`);
+      if (currentNavBtn) {
+        currentNavBtn.classList.remove('text-slate-400');
+        currentNavBtn.classList.add('text-blue-600');
+        const span = currentNavBtn.querySelector('span');
+        if (span) span.classList.add('font-bold');
+      }
+
+      // Render tab-specific view
+      if (tabId === 'tab-attendance') renderAttendanceTab();
+      if (tabId === 'tab-workers') renderWorkersTab();
+      if (tabId === 'tab-advances') renderAdvancesTab();
+      if (tabId === 'tab-hisaab') renderHisaabTab();
+
+      // Refresh icons
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // ---------------------------------------------
+    // SITE FILTER & MANAGEMENT
+    // ---------------------------------------------
+    function updateSiteDropdowns() {
+      const siteSelect = document.getElementById('selected-site');
+      const workerSiteSelect = document.getElementById('worker-site');
+      const reportSiteSelect = document.getElementById('report-site-filter');
+
+      // Populate Top Filter
+      let optionsHtml = `<option value="ALL" class="bg-slate-800 text-white">सभी साइट्स (All)</option>`;
+      state.sites.forEach(s => {
+        optionsHtml += `<option value="${s}" class="bg-slate-800 text-white">${s}</option>`;
+      });
+      siteSelect.innerHTML = optionsHtml;
+      siteSelect.value = state.selectedSite;
+
+      // Populate Worker Form Dropdown
+      let workerOptionsHtml = '';
+      state.sites.forEach(s => {
+        workerOptionsHtml += `<option value="${s}">${s}</option>`;
+      });
+      workerSiteSelect.innerHTML = workerOptionsHtml;
+
+      // Populate Report Filter Dropdown
+      reportSiteSelect.innerHTML = `<option value="ALL">सभी साइट्स (All)</option>` + workerOptionsHtml;
+      reportSiteSelect.value = state.selectedSite;
+    }
+
+    function onSiteFilterChange() {
+      state.selectedSite = document.getElementById('selected-site').value;
+      renderAttendanceTab();
+    }
+
+    function openSiteManagementModal() {
+      renderSitesChips();
+      document.getElementById('site-modal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeSiteManagementModal() {
+      document.getElementById('site-modal').classList.add('hidden');
+    }
+
+    function renderSitesChips() {
+      const container = document.getElementById('sites-chips-list');
+      container.innerHTML = state.sites.map((s, idx) => `
+        <span class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-800 border border-slate-300 px-2.5 py-1 rounded-xl text-xs">
+          <span>${s}</span>
+          ${state.sites.length > 1 ? `<button onclick="deleteSite(${idx})" class="text-rose-500 hover:text-rose-700 font-bold ml-1">&times;</button>` : ''}
+        </span>
+      `).join('');
+    }
+
+    function addNewSite() {
+      const input = document.getElementById('new-site-input');
+      const name = input.value.trim();
+      if (!name) return;
+      if (!state.sites.includes(name)) {
+        state.sites.push(name);
+        saveSites();
+        updateSiteDropdowns();
+        renderSitesChips();
+        input.value = '';
+        showToast(`साइट "${name}" जोड़ी गई`);
+      }
+    }
+
+    function deleteSite(index) {
+      if (state.sites.length <= 1) {
+        alert('कम से कम एक साइट होना आवश्यक है!');
+        return;
+      }
+      const removed = state.sites.splice(index, 1)[0];
+      if (state.selectedSite === removed) state.selectedSite = 'ALL';
+      saveSites();
+      updateSiteDropdowns();
+      renderSitesChips();
+      renderAttendanceTab();
+      showToast(`साइट हटाई गई`);
+    }
+
+    // ---------------------------------------------
+    // ATTENDANCE TAB LOGIC
+    // ---------------------------------------------
+    function setTodayDate() {
+      state.selectedDate = getTodayString();
+      document.getElementById('attendance-date').value = state.selectedDate;
+      renderAttendanceTab();
+    }
+
+    function changeAttendanceDate(offsetDays) {
+      const d = new Date(state.selectedDate);
+      d.setDate(d.getDate() + offsetDays);
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      state.selectedDate = `${d.getFullYear()}-${m}-${day}`;
+      document.getElementById('attendance-date').value = state.selectedDate;
+      renderAttendanceTab();
+    }
+
+    function markAllPresent() {
+      const filtered = getFilteredWorkers();
+      filtered.forEach(w => {
+        const key = `${state.selectedDate}_${w.id}`;
+        const current = state.attendance[key] || { otHours: 0, note: '' };
+        state.attendance[key] = {
+          ...current,
+          status: 'P'
+        };
+      });
+      saveAttendance();
+      renderAttendanceTab();
+      showToast('सभी को Present मार्क किया गया ✅');
+    }
+
+    function updateAttendanceStatus(workerId, status) {
+      const key = `${state.selectedDate}_${workerId}`;
+      const current = state.attendance[key] || { otHours: 0, note: '' };
+      
+      // If clicking same status, clear it or keep it
+      state.attendance[key] = {
+        ...current,
+        status: status
+      };
+
+      saveAttendance();
+      renderAttendanceTab();
+    }
+
+    function updateOvertimeHours(workerId, delta) {
+      const key = `${state.selectedDate}_${workerId}`;
+      const current = state.attendance[key] || { status: 'P', otHours: 0, note: '' };
+      let newHours = (current.otHours || 0) + delta;
+      if (newHours < 0) newHours = 0;
+      if (newHours > 16) newHours = 16;
+
+      state.attendance[key] = {
+        ...current,
+        status: current.status || 'P',
+        otHours: newHours
+      };
+
+      saveAttendance();
+      renderAttendanceTab();
+    }
+
+    function getFilteredWorkers() {
+      if (state.selectedSite === 'ALL') {
+        return state.workers;
+      }
+      return state.workers.filter(w => w.site === state.selectedSite);
+    }
+
+    function renderAttendanceTab() {
+      document.getElementById('attendance-date').value = state.selectedDate;
+
+      const workers = getFilteredWorkers();
+      const listContainer = document.getElementById('attendance-list');
+      document.getElementById('attendance-count-badge').innerText = workers.length;
+
+      let presentCount = 0;
+      let halfCount = 0;
+      let absentCount = 0;
+      let totalWagesToday = 0;
+
+      if (workers.length === 0) {
+        listContainer.innerHTML = `
+          <div class="bg-white rounded-2xl p-8 text-center border border-slate-200">
+            <i data-lucide="users" class="w-10 h-10 text-slate-300 mx-auto mb-2"></i>
+            <p class="text-sm font-semibold text-slate-700">कोई मजदूर नहीं मिला</p>
+            <p class="text-xs text-slate-400 mt-1">इस साइट पर कोई मजदूर असाइन नहीं है या कोई मजदूर ऐड नहीं किया गया है।</p>
+            <button onclick="openNewWorkerModal()" class="mt-4 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow">
+              + नया मजदूर जोड़ें
+            </button>
+          </div>
+        `;
+      } else {
+        let html = '';
+        workers.forEach(w => {
+          const key = `${state.selectedDate}_${w.id}`;
+          const att = state.attendance[key] || { status: null, otHours: 0, note: '' };
+          const status = att.status;
+          const ot = att.otHours || 0;
+
+          // Stats calculation
+          let workerTodayPay = 0;
+          if (status === 'P') {
+            presentCount++;
+            workerTodayPay += Number(w.rate || 0);
+          } else if (status === 'HD') {
+            halfCount++;
+            workerTodayPay += Number(w.rate || 0) / 2;
+          } else if (status === 'A') {
+            absentCount++;
+          }
+
+          // OT Pay
+          if (ot > 0) {
+            const otRate = w.otRate ? Number(w.otRate) : Math.round(Number(w.rate || 0) / 8);
+            workerTodayPay += (ot * otRate);
+          }
+
+          totalWagesToday += workerTodayPay;
+
+          // Color classes for buttons
+          const isP = status === 'P';
+          const isA = status === 'A';
+          const isHD = status === 'HD';
+
+          html += `
+            <div class="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200 transition hover:border-slate-300">
+              <div class="flex items-start justify-between gap-2">
+                <!-- Worker Info -->
+                <div class="flex-1 min-w-0" onclick="viewWorkerHistory('${w.id}')" role="button">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <h3 class="font-bold text-slate-900 text-sm truncate">${w.name}</h3>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80">${w.role}</span>
+                  </div>
+                  <div class="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                    <span>दिहाड़ी: <strong class="text-slate-800">₹${w.rate}</strong></span>
+                    <span class="truncate text-[11px] text-slate-400">📍 ${w.site || 'Site'}</span>
+                  </div>
+                </div>
+
+                <!-- Calculated Today Earned Badge -->
+                <div class="text-right">
+                  <span class="text-xs font-bold ${workerTodayPay > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50'} px-2 py-1 rounded-xl block">
+                    ₹${workerTodayPay}
+                  </span>
+                  <span class="text-[10px] text-slate-400">आज का हिसाब</span>
+                </div>
+              </div>
+
+              <!-- Action Row: P / HD / A & Overtime -->
+              <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                
+                <!-- Attendance Status Buttons -->
+                <div class="flex items-center space-x-1.5">
+                  <!-- Present Button -->
+                  <button onclick="updateAttendanceStatus('${w.id}', 'P')" class="px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition active:scale-95 ${isP ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300' : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'}">
+                    <span>P</span>
+                    <span class="text-[10px] font-medium hidden xs:inline">पूरा दिन</span>
+                  </button>
+
+                  <!-- Half Day Button -->
+                  <button onclick="updateAttendanceStatus('${w.id}', 'HD')" class="px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition active:scale-95 ${isHD ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300' : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700'}">
+                    <span>HD</span>
+                    <span class="text-[10px] font-medium hidden xs:inline">आधा</span>
+                  </button>
+
+                  <!-- Absent Button -->
+                  <button onclick="updateAttendanceStatus('${w.id}', 'A')" class="px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition active:scale-95 ${isA ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-300' : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700'}">
+                    <span>A</span>
+                    <span class="text-[10px] font-medium hidden xs:inline">गैरहाजिर</span>
+                  </button>
+                </div>
+
+                <!-- Overtime Counter -->
+                <div class="flex items-center space-x-1 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-xl">
+                  <span class="text-[11px] text-slate-500 font-medium mr-1">OT:</span>
+                  <button onclick="updateOvertimeHours('${w.id}', -1)" class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center active:scale-90">-</button>
+                  <span class="w-6 text-center text-xs font-bold text-blue-700">${ot}h</span>
+                  <button onclick="updateOvertimeHours('${w.id}', 1)" class="w-6 h-6 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center active:scale-90">+</button>
+                </div>
+
+              </div>
+            </div>
+          `;
+        });
+        listContainer.innerHTML = html;
+      }
+
+      // Update Quick Stats
+      document.getElementById('stat-total').innerText = workers.length;
+      document.getElementById('stat-present').innerText = presentCount;
+      document.getElementById('stat-half').innerText = halfCount;
+      document.getElementById('stat-absent').innerText = absentCount;
+      document.getElementById('today-total-wages').innerText = `₹${totalWagesToday.toLocaleString('en-IN')}`;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // ---------------------------------------------
+    // WORKERS TAB LOGIC
+    // ---------------------------------------------
+    function renderWorkersTab() {
+      const search = (document.getElementById('worker-search-input')?.value || '').toLowerCase().trim();
+      const listContainer = document.getElementById('workers-cards-list');
+      
+      const filtered = state.workers.filter(w => {
+        return w.name.toLowerCase().includes(search) || (w.phone && w.phone.includes(search)) || (w.role && w.role.toLowerCase().includes(search));
+      });
+
+      document.getElementById('total-worker-count').innerText = `कुल मजदूर: ${filtered.length}`;
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `
+          <div class="bg-white rounded-2xl p-8 text-center border border-slate-200 text-slate-400 text-xs">
+            कोई मजदूर नहीं मिला।
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(w => {
+        html += `
+          <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200 flex items-center justify-between">
+            <div class="flex items-center space-x-3 min-w-0" onclick="viewWorkerHistory('${w.id}')" role="button">
+              <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-base border border-blue-100 shrink-0">
+                ${w.name.charAt(0)}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <h4 class="font-bold text-slate-800 text-sm truncate">${w.name}</h4>
+                  <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">${w.role}</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                  <span>दिहाड़ी: <strong class="text-emerald-700 font-bold">₹${w.rate}</strong></span>
+                  <span>|</span>
+                  <span class="truncate">📍 ${w.site || 'General'}</span>
+                </div>
+                ${w.phone ? `<div class="text-[11px] text-blue-600 mt-0.5">📞 ${w.phone}</div>` : ''}
+              </div>
+            </div>
+
+            <!-- Edit / Delete Actions -->
+            <div class="flex items-center space-x-1 shrink-0 ml-2">
+              <button onclick="editWorker('${w.id}')" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition" title="एडिट करें">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteWorker('${w.id}')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition" title="डिलीट करें">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      listContainer.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function openNewWorkerModal() {
+      document.getElementById('edit-worker-id').value = '';
+      document.getElementById('worker-form').reset();
+      document.getElementById('worker-modal-title').innerHTML = `
+        <i data-lucide="user-plus" class="w-5 h-5 text-blue-600"></i>
+        <span>नया मजदूर जोड़ें</span>
+      `;
+      updateSiteDropdowns();
+      document.getElementById('worker-modal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function editWorker(id) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+
+      document.getElementById('edit-worker-id').value = worker.id;
+      document.getElementById('worker-name').value = worker.name;
+      document.getElementById('worker-phone').value = worker.phone || '';
+      document.getElementById('worker-rate').value = worker.rate;
+      document.getElementById('worker-role').value = worker.role || 'हेल्पर (Helper)';
+      document.getElementById('worker-ot-rate').value = worker.otRate || '';
+      
+      updateSiteDropdowns();
+      document.getElementById('worker-site').value = worker.site || state.sites[0];
+
+      document.getElementById('worker-modal-title').innerHTML = `
+        <i data-lucide="edit" class="w-5 h-5 text-blue-600"></i>
+        <span>मजदूर का विवरण बदलें</span>
+      `;
+      document.getElementById('worker-modal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeWorkerModal() {
+      document.getElementById('worker-modal').classList.add('hidden');
+    }
+
+    function handleWorkerFormSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-worker-id').value;
+      const name = document.getElementById('worker-name').value.trim();
+      const phone = document.getElementById('worker-phone').value.trim();
+      const rate = Number(document.getElementById('worker-rate').value);
+      const role = document.getElementById('worker-role').value;
+      const site = document.getElementById('worker-site').value;
+      let otRate = document.getElementById('worker-ot-rate').value;
+      otRate = otRate ? Number(otRate) : Math.round(rate / 8);
+
+      if (!name || !rate) return;
+
+      if (id) {
+        // Update existing
+        const index = state.workers.findIndex(w => w.id === id);
+        if (index !== -1) {
+          state.workers[index] = { ...state.workers[index], name, phone, rate, role, site, otRate };
+          showToast(`"${name}" का विवरण अपडेट हुआ!`);
+        }
+      } else {
+        // Create new
+        const newWorker = {
+          id: 'w_' + Date.now(),
+          name,
+          phone,
+          rate,
+          role,
+          site,
+          otRate,
+          createdAt: getTodayString()
+        };
+        state.workers.push(newWorker);
+
+        // Mark default present for today
+        const key = `${state.selectedDate}_${newWorker.id}`;
+        state.attendance[key] = { status: 'P', otHours: 0, note: '' };
+        saveAttendance();
+
+        showToast(`नया मजदूर "${name}" सफलतापूर्वक जोड़ा गया! 🎉`);
+      }
+
+      saveWorkers();
+      closeWorkerModal();
+      renderWorkersTab();
+      renderAttendanceTab();
+    }
+
+    function deleteWorker(id) {
+      const worker = state.workers.find(w => w.id === id);
+      if (!worker) return;
+      if (confirm(`क्या आप सचमुच "${worker.name}" को हटाना चाहते हैं?`)) {
+        state.workers = state.workers.filter(w => w.id !== id);
+        saveWorkers();
+        renderWorkersTab();
+        renderAttendanceTab();
+        showToast('मजदूर हटा दिया गया');
+      }
+    }
+
+    // ---------------------------------------------
+    // ADVANCES & KHARCHA LOGIC
+    // ---------------------------------------------
+    function renderAdvancesTab() {
+      // Populate worker select
+      const select = document.getElementById('adv-worker-select');
+      select.innerHTML = `<option value="">-- मजदूर सेलेक्ट करें --</option>` + state.workers.map(w => `
+        <option value="${w.id}">${w.name} (दिहाड़ी: ₹${w.rate})</option>
+      `).join('');
+
+      document.getElementById('adv-date').value = state.selectedDate;
+
+      // Render history
+      const list = document.getElementById('advances-history-list');
+      let totalAdv = 0;
+
+      if (state.advances.length === 0) {
+        list.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">अभी तक कोई एडवांस दर्ज नहीं किया गया है।</div>`;
+        document.getElementById('advances-total-badge').innerText = `कुल: ₹0`;
+        return;
+      }
+
+      // Sort recent first
+      const sorted = [...state.advances].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      let html = '';
+      sorted.forEach(adv => {
+        totalAdv += Number(adv.amount || 0);
+        const worker = state.workers.find(w => w.id === adv.workerId);
+        const workerName = worker ? worker.name : 'Unknown Worker';
+
+        html += `
+          <div class="py-2.5 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs shrink-0">
+                ₹
+              </div>
+              <div>
+                <div class="font-bold text-slate-800 text-xs">${workerName}</div>
+                <div class="text-[11px] text-slate-400 flex items-center gap-2">
+                  <span>📅 ${adv.date}</span>
+                  <span>•</span>
+                  <span>${adv.mode || 'Cash'}</span>
+                  ${adv.note ? `<span>• <em>${adv.note}</em></span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-sm text-amber-700">₹${adv.amount}</span>
+              <button onclick="deleteAdvance('${adv.id}')" class="text-slate-300 hover:text-rose-600 p-1 rounded-lg">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      list.innerHTML = html;
+      document.getElementById('advances-total-badge').innerText = `कुल: ₹${totalAdv.toLocaleString('en-IN')}`;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function handleAdvanceSubmit(e) {
+      e.preventDefault();
+      const workerId = document.getElementById('adv-worker-select').value;
+      const amount = Number(document.getElementById('adv-amount').value);
+      const date = document.getElementById('adv-date').value;
+      const mode = document.getElementById('adv-mode').value;
+      const note = document.getElementById('adv-note').value.trim();
+
+      if (!workerId || !amount || !date) return;
+
+      const newAdvance = {
+        id: 'adv_' + Date.now(),
+        workerId,
+        amount,
+        date,
+        mode,
+        note
+      };
+
+      state.advances.push(newAdvance);
+      saveAdvances();
+
+      document.getElementById('advance-form').reset();
+      document.getElementById('adv-date').value = state.selectedDate;
+
+      renderAdvancesTab();
+      showToast(`₹${amount} का एडवांस दर्ज हो गया!`);
+    }
+
+    function deleteAdvance(id) {
+      if (confirm('क्या आप यह एडवांस रिकॉर्ड हटाना चाहते हैं?')) {
+        state.advances = state.advances.filter(a => a.id !== id);
+        saveAdvances();
+        renderAdvancesTab();
+        showToast('एडवांस रिकॉर्ड हटा दिया गया');
+      }
+    }
+
+    // ---------------------------------------------
+    // HISAAB & MONTHLY REPORTS LOGIC
+    // ---------------------------------------------
+    function renderHisaabTab() {
+      let monthVal = document.getElementById('report-month').value;
+      if (!monthVal) {
+        monthVal = getCurrentMonthString();
+        document.getElementById('report-month').value = monthVal;
+      }
+
+      const siteFilter = document.getElementById('report-site-filter').value;
+      const container = document.getElementById('hisaab-workers-list');
+
+      let workers = state.workers;
+      if (siteFilter !== 'ALL') {
+        workers = workers.filter(w => w.site === siteFilter);
+      }
+
+      let totalGrossAll = 0;
+      let totalAdvanceAll = 0;
+      let totalNetAll = 0;
+
+      if (workers.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-8 text-center text-xs text-slate-400">कोई डेटा उपलब्ध नहीं है।</div>`;
+        return;
+      }
+
+      let html = '';
+      workers.forEach(w => {
+        const stats = calculateWorkerMonthlyStats(w.id, monthVal);
+        totalGrossAll += stats.grossWages;
+        totalAdvanceAll += stats.totalAdvance;
+        totalNetAll += stats.netBalance;
+
+        html += `
+          <div class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-bold text-slate-900 text-sm">${w.name}</h4>
+                <div class="text-xs text-slate-500">दिहाड़ी: ₹${w.rate} • ${w.role}</div>
+              </div>
+              <div class="text-right">
+                <span class="text-base font-bold ${stats.netBalance >= 0 ? 'text-emerald-700' : 'text-rose-600'}">
+                  ₹${stats.netBalance.toLocaleString('en-IN')}
+                </span>
+                <span class="text-[10px] text-slate-400 block font-medium">देने बाकी (Balance)</span>
+              </div>
+            </div>
+
+            <!-- Breakdown Pills -->
+            <div class="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center text-xs">
+              <div>
+                <span class="text-[10px] text-slate-500 block">हाजिरी दिन</span>
+                <span class="font-bold text-slate-800">${stats.presentDays} <small class="text-[10px] text-slate-400 font-normal">(${stats.halfDays} HD)</small></span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">OT घंटे</span>
+                <span class="font-bold text-blue-700">${stats.totalOtHours}h</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">कुल कमाई</span>
+                <span class="font-bold text-slate-800">₹${stats.grossWages}</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">एडवांस कटा</span>
+                <span class="font-bold text-amber-700">₹${stats.totalAdvance}</span>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+              <button onclick="viewWorkerHistory('${w.id}')" class="text-xs text-blue-600 font-semibold flex items-center gap-1 hover:underline">
+                <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                <span>तारीखवार हाजिरी देखें</span>
+              </button>
+
+              <button onclick="shareHisaabOnWhatsApp('${w.id}', '${monthVal}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs active:scale-95 transition">
+                <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                <span>WhatsApp हिसाब</span>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      // Summary
+      document.getElementById('report-total-gross').innerText = `₹${totalGrossAll.toLocaleString('en-IN')}`;
+      document.getElementById('report-total-advance').innerText = `₹${totalAdvanceAll.toLocaleString('en-IN')}`;
+      document.getElementById('report-total-net').innerText = `₹${totalNetAll.toLocaleString('en-IN')}`;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function calculateWorkerMonthlyStats(workerId, yearMonth) {
+      const worker = state.workers.find(w => w.id === workerId);
+      if (!worker) return { presentDays: 0, halfDays: 0, absentDays: 0, totalOtHours: 0, grossWages: 0, totalAdvance: 0, netBalance: 0 };
+
+      let presentDays = 0;
+      let halfDays = 0;
+      let absentDays = 0;
+      let totalOtHours = 0;
+      let wageFromAttendance = 0;
+
+      // Scan attendance for yearMonth (e.g. "2026-11")
+      Object.keys(state.attendance).forEach(key => {
+        if (key.startsWith(yearMonth) && key.endsWith(`_${workerId}`)) {
+          const att = state.attendance[key];
+          if (att.status === 'P') {
+            presentDays += 1;
+            wageFromAttendance += Number(worker.rate || 0);
+          } else if (att.status === 'HD') {
+            halfDays += 1;
+            wageFromAttendance += Number(worker.rate || 0) / 2;
+          } else if (att.status === 'A') {
+            absentDays += 1;
+          }
+
+          if (att.otHours && att.otHours > 0) {
+            totalOtHours += Number(att.otHours);
+            const otRate = worker.otRate ? Number(worker.otRate) : Math.round(Number(worker.rate || 0) / 8);
+            wageFromAttendance += (Number(att.otHours) * otRate);
+          }
+        }
+      });
+
+      // Scan advances for yearMonth
+      let totalAdvance = 0;
+      state.advances.forEach(adv => {
+        if (adv.workerId === workerId && adv.date && adv.date.startsWith(yearMonth)) {
+          totalAdvance += Number(adv.amount || 0);
+        }
+      });
+
+      const netBalance = wageFromAttendance - totalAdvance;
+
+      return {
+        presentDays,
+        halfDays,
+        absentDays,
+        totalOtHours,
+        grossWages: Math.round(wageFromAttendance),
+        totalAdvance: Math.round(totalAdvance),
+        netBalance: Math.round(netBalance)
+      };
+    }
+
+    // ---------------------------------------------
+    // WHATSAPP SHARING
+    // ---------------------------------------------
+    function shareHisaabOnWhatsApp(workerId, yearMonth) {
+      const worker = state.workers.find(w => w.id === workerId);
+      if (!worker) return;
+
+      const stats = calculateWorkerMonthlyStats(workerId, yearMonth);
+
+      const msg = `*हाजिरी एवं वेतन हिसाब (Labour Attendance Hisaab)*%0A` +
+        `-----------------------------------------%0A` +
+        `👤 *मजदूर का नाम:* ${encodeURIComponent(worker.name)}%0A` +
+        `🗓 *महीना:* ${yearMonth}%0A` +
+        `🔨 *काम (Role):* ${encodeURIComponent(worker.role)}%0A` +
+        `💰 *दैनिक दिहाड़ी:* ₹${worker.rate}/दिन%0A` +
+        `-----------------------------------------%0A` +
+        `✅ *कुल उपस्थित (Present):* ${stats.presentDays} दिन%0A` +
+        `⏳ *आधा दिन (Half-Day):* ${stats.halfDays} दिन%0A` +
+        `⏰ *ओवरटाइम (Overtime):* ${stats.totalOtHours} घंटे%0A` +
+        `💵 *कुल कमाई (Gross Earnings):* ₹${stats.grossWages}%0A` +
+        `💸 *एडवांस / खर्चा लिया:* ₹${stats.totalAdvance}%0A` +
+        `-----------------------------------------%0A` +
+        `🎯 *बाकी बची रकम (Net Payable):* *₹${stats.netBalance}*%0A` +
+        `-----------------------------------------%0A` +
+        `_Generated via Haajiri Diary Pro_`;
+
+      const phone = worker.phone ? worker.phone.replace(/[^0-9]/g, '') : '';
+      let waUrl = `https://wa.me/?text=${msg}`;
+      if (phone && phone.length >= 10) {
+        const fullPhone = phone.length === 10 ? '91' + phone : phone;
+        waUrl = `https://wa.me/${fullPhone}?text=${msg}`;
+      }
+
+      window.open(waUrl, '_blank');
+    }
+
+    // ---------------------------------------------
+    // WORKER DETAILED HISTORY MODAL
+    // ---------------------------------------------
+    function viewWorkerHistory(workerId) {
+      const worker = state.workers.find(w => w.id === workerId);
+      if (!worker) return;
+
+      const currentMonth = document.getElementById('report-month')?.value || getCurrentMonthString();
+      const stats = calculateWorkerMonthlyStats(workerId, currentMonth);
+
+      document.getElementById('wh-name').innerText = worker.name;
+      document.getElementById('wh-role-site').innerText = `${worker.role} • 📍 ${worker.site} • ₹${worker.rate}/दिन`;
+
+      document.getElementById('wh-present-days').innerText = `${stats.presentDays} दिन`;
+      document.getElementById('wh-gross-wages').innerText = `₹${stats.grossWages}`;
+      document.getElementById('wh-net-balance').innerText = `₹${stats.netBalance}`;
+
+      // WhatsApp Button
+      document.getElementById('wh-whatsapp-btn').onclick = () => shareHisaabOnWhatsApp(worker.id, currentMonth);
+
+      // Populate records
+      const recordsContainer = document.getElementById('wh-attendance-records');
+      const dates = [];
+      Object.keys(state.attendance).forEach(key => {
+        if (key.endsWith(`_${workerId}`)) {
+          const dateStr = key.split('_')[0];
+          dates.push({ date: dateStr, ...state.attendance[key] });
+        }
+      });
+
+      // Sort dates descending
+      dates.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      if (dates.length === 0) {
+        recordsContainer.innerHTML = `<div class="py-4 text-center text-slate-400">इस मजदूर का कोई हाजिरी रिकॉर्ड नहीं मिला।</div>`;
+      } else {
+        recordsContainer.innerHTML = dates.slice(0, 31).map(r => {
+          let badge = '';
+          if (r.status === 'P') badge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Present (P)</span>';
+          else if (r.status === 'HD') badge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">Half Day (HD)</span>';
+          else if (r.status === 'A') badge = '<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold">Absent (A)</span>';
+          else badge = '<span class="text-slate-400">Not Marked</span>';
+
+          return `
+            <div class="py-2 flex items-center justify-between">
+              <div>
+                <span class="font-semibold text-slate-700">${r.date}</span>
+                ${r.otHours > 0 ? `<span class="ml-2 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">+${r.otHours}h OT</span>` : ''}
+              </div>
+              <div>${badge}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('worker-history-modal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeWorkerHistoryModal() {
+      document.getElementById('worker-history-modal').classList.add('hidden');
+    }
+
+    // ---------------------------------------------
+    // EXCEL EXPORT (Using SheetJS)
+    // ---------------------------------------------
+    function exportToExcel() {
+      const monthVal = document.getElementById('report-month').value || getCurrentMonthString();
+      const siteFilter = document.getElementById('report-site-filter').value;
+      
+      let workers = state.workers;
+      if (siteFilter !== 'ALL') {
+        workers = workers.filter(w => w.site === siteFilter);
+      }
+
+      const rows = [
+        ['Labour Attendance & Salary Payout Sheet'],
+        [`महीना: ${monthVal}`, `साइट: ${siteFilter}`],
+        [],
+        ['क्रमांक', 'मजदूर का नाम', 'रोल', 'साइट', 'दैनिक दिहाड़ी', 'उपस्थित (P) दिन', 'आधा दिन (HD)', 'OT घंटे', 'कुल कमाई (₹)', 'एडवांस कटा (₹)', 'बाकी भुगतान (Net ₹)']
+      ];
+
+      workers.forEach((w, idx) => {
+        const stats = calculateWorkerMonthlyStats(w.id, monthVal);
+        rows.push([
+          idx + 1,
+          w.name,
+          w.role,
+          w.site,
+          w.rate,
+          stats.presentDays,
+          stats.halfDays,
+          stats.totalOtHours,
+          stats.grossWages,
+          stats.totalAdvance,
+          stats.netBalance
+        ]);
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, 'Hisaab_Report');
+
+      XLSX.writeFile(wb, `Labour_Hisaab_${monthVal}_${siteFilter}.xlsx`);
+      showToast('Excel फाइल डाउनलोड हो गई! 📊');
+    }
+
+    // ---------------------------------------------
+    // BACKUP & RESTORE
+    // ---------------------------------------------
+    function openBackupModal() {
+      document.getElementById('backup-modal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeBackupModal() {
+      document.getElementById('backup-modal').classList.add('hidden');
+    }
+
+    function exportDataBackup() {
+      const fullData = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        workers: state.workers,
+        attendance: state.attendance,
+        advances: state.advances,
+        sites: state.sites
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Labour_App_Backup_${getTodayString()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('बैकअप फाइल सेव हो गई!');
+    }
+
+    function importDataBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed.workers && parsed.attendance) {
+            state.workers = parsed.workers;
+            state.attendance = parsed.attendance;
+            state.advances = parsed.advances || [];
+            state.sites = parsed.sites || SAMPLE_SITES;
+
+            saveWorkers();
+            saveAttendance();
+            saveAdvances();
+            saveSites();
+
+            updateSiteDropdowns();
+            renderAttendanceTab();
+            closeBackupModal();
+            showToast('बैकअप सफलतापूर्वक रीस्टोर हुआ! ✅');
+          } else {
+            alert('अमान्य बैकअप फाइल फॉर्मेट!');
+          }
+        } catch (err) {
+          alert('फाइल पढ़ने में त्रुटि!');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetToSampleData() {
+      if (confirm('क्या आप सैंपल डेटा रीसेट करना चाहते हैं?')) {
+        state.workers = SAMPLE_WORKERS;
+        state.sites = SAMPLE_SITES;
+        state.attendance = {};
+        state.advances = [];
+
+        state.workers.forEach((w, idx) => {
+          const key = `${state.selectedDate}_${w.id}`;
+          const status = idx === 3 ? 'HD' : (idx === 4 ? 'A' : 'P');
+          state.attendance[key] = { status, otHours: idx === 0 ? 2 : 0, note: '' };
+        });
+
+        saveWorkers();
+        saveAttendance();
+        saveAdvances();
+        saveSites();
+
+        updateSiteDropdowns();
+        renderAttendanceTab();
+        closeBackupModal();
+        showToast('डेमो डेटा रीलोड हो गया!');
+      }
+    }
+
+    // ---------------------------------------------
+    // TOAST HELPER
+    // ---------------------------------------------
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msgSpan = document.getElementById('toast-msg');
+      msgSpan.innerText = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 2500);
+    }
+
+    // ---------------------------------------------
+    // INITIALIZATION
+    // ---------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      updateSiteDropdowns();
+      setTodayDate();
+      document.getElementById('report-month').value = getCurrentMonthString();
+      renderAttendanceTab();
+      if (window.lucide) lucide.createIcons();
+
+      // Register service worker if available
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {
+          // SW registration failed (offline or standalone file) - app still works 100% fine
+        });
+      }
+    });
+  </script>
+</body>
+</html>
